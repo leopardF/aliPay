@@ -1,13 +1,13 @@
 package com.alipay;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.net.URL;
+import java.io.File;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
-import org.apache.commons.logging.impl.Log4JLogger;
+import javax.servlet.http.HttpServletRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,49 +17,70 @@ import com.alipay.api.AlipayClient;
 import com.alipay.api.CertAlipayRequest;
 import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.domain.AlipayTradeAppPayModel;
-import com.alipay.api.domain.GetRuleInfo;
+import com.alipay.api.internal.util.AlipaySignature;
 import com.alipay.api.request.AlipayTradeAppPayRequest;
 import com.alipay.api.response.AlipayTradeAppPayResponse;
 import com.alipay.config.AlipayConfig;
 import com.alipay.enums.AliAppPayResponseCode;
-import com.alipay.request.BizContentRequest;
+import com.alipay.enums.GoodsTypeEnum;
 
 public class AliAppPayRequest {
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(AliAppPayRequest.class);
+	
+	// Linux文件绝对路径 --- ${jar包所在路径}/crt/
+//	private static final String outPath = System.getProperty("user.dir") + File.separator + "crt" + File.separator;
+	// window文件相对路径
+	private static final String outPath = AliAppPayRequest.class.getClass().getResource("/").getPath();
+	
 
 	/**
-	 * 支付请求
+	 * 获取支付订单信息
 	 * 
-	 * @param bizContentRequest
+	 * @param timeoutExpress
+	 *            超时时间，1表示1分钟
+	 * @param subject
+	 *            商品标题（最大长度256）
+	 * @param body
+	 *            内容（最大长度512）
+	 * @param totalAmount
+	 *            总金额
+	 * @param outTradeNo
+	 *            商户网站唯一订单号（最大长度64）
+	 * @param passbackParams
+	 *            回传参数（最大长度512）
 	 * @param notifyUrl
-	 *            异步回调地址
+	 *            异步通知回调地址
 	 * @return
 	 */
-	public AliAppPayResponseCode pay(BizContentRequest bizContentRequest, String notifyUrl) {
+	public AliAppPayResponseCode appPayRequest(int timeoutExpress, String subject, String body, String totalAmount,
+			String outTradeNo, String passbackParams, String notifyUrl) {
 
-		if(getCertAlipayRequest() != null){
+		CertAlipayRequest certAlipayRequest = getCertAlipayRequest();
+		if (certAlipayRequest == null) {
+			return AliAppPayResponseCode.CRT_FILE_ERROR;
+		}
 
-			return AliAppPayResponseCode.PARAM_ERROR;
-		}
-		
-		if (checkObjFieldIsNull(bizContentRequest)) {
-			logger.info("请求参数缺失！");
-			return AliAppPayResponseCode.PARAM_ERROR;
-		}
-		String bizContentJson = JSONObject.toJSONString(bizContentRequest);
 		// 实例化具体API对应的request类,类名称和接口名称对应,当前调用接口名称：alipay.trade.app.pay
 		AlipayTradeAppPayRequest request = new AlipayTradeAppPayRequest();
 		AlipayTradeAppPayModel model = new AlipayTradeAppPayModel();
 		// SDK已经封装掉了公共参数，这里只需要传入业务参数。以下方法为sdk的model入参方式(model和biz_content同时存在的情况下取biz_content)。
-		request.setBizContent(bizContentJson);
+		model.setTimeoutExpress(timeoutExpress + "m");
+		model.setSubject(subject);
+		model.setBody(body);
+		model.setTotalAmount(totalAmount);
+		model.setOutTradeNo(outTradeNo);
+		model.setProductCode("QUICK_MSECURITY_PAY");
+		model.setGoodsType(GoodsTypeEnum.VIRTUAL.value());
+		model.setPassbackParams(URLEncoder.encode(passbackParams));
+		request.setBizModel(model);
 		request.setNotifyUrl(notifyUrl);
 		request.setApiVersion("2.0");
 
 		// 构造client
 		AlipayClient alipayClient = null;
 		try {
-			alipayClient = new DefaultAlipayClient(getCertAlipayRequest());
+			alipayClient = new DefaultAlipayClient(certAlipayRequest);
 			// 这里和普通的接口调用不同，使用的是sdkExecute
 			AlipayTradeAppPayResponse response = alipayClient.sdkExecute(request);
 			System.out.println(response.getBody());// 就是orderString
@@ -98,97 +119,84 @@ public class AliAppPayRequest {
 		certAlipayRequest.setCharset(AlipayConfig.charset);
 		// 设置签名类型
 		certAlipayRequest.setSignType(AlipayConfig.sign_type);
+
 		// 设置应用公钥证书路径
-		// File path = new File(ResourceUtils.getURL("classpath:").getPath());
-//		InputStream inputStream = getClass().getClassLoader().getResourceAsStream("alipayRootCert.crt");
-		logger.info("start----");
-		URL resource1 = this.getClass().getResource("/alipayRootCert.crt");
-		if(resource1 != null){
-			String path1 = resource1.getPath();
-			logger.info(path1);
+		// getPath: ${jar包所在“根”路径}/crt/appCertPublicKey_2019102168481752.crt,其他两个相同
+		// getPath: G:\git\leopard-console\target\classes\appCertPublicKey_2019102168481752.crt
+		File appCertfile = new File(outPath + "appCertPublicKey_2019102168481752.crt");
+		if (appCertfile == null || appCertfile.getPath() == null) {
+			logger.error("------/crt/------找不到应用公钥证书");
+			return null;
 		}
-//		logger.info(inputStream.toString());
-		URL resource2 = this.getClass().getResource("/alipayCertPublicKey_RSA2.crt");
-		if(resource2 != null){
-			String path2 = resource2.getPath();
-			logger.info(path2);
+		certAlipayRequest.setCertPath(appCertfile.getPath());
+		// 设置支付宝公钥证书路径
+		File alipayCertfile = new File(outPath + "alipayCertPublicKey_RSA2.crt");
+		System.out.println(alipayCertfile.getPath());
+		if (alipayCertfile == null || alipayCertfile.getPath() == null) {
+			logger.error("------/crt/------找不到支付宝公钥证书");
+			return null;
 		}
-		URL resource3 = this.getClass().getResource("/appCertPublicKey_2019102168481752.crt");
-		if(resource3 != null){
-			String path3 = resource3.getPath();
-			logger.info(path3);
+		certAlipayRequest.setAlipayPublicCertPath(alipayCertfile.getPath());
+		// 设置支付宝根证书路径
+		File alipayRootCertfile = new File(outPath + "alipayRootCert.crt");
+		System.out.println(alipayRootCertfile.getPath());
+		if (alipayRootCertfile == null || alipayRootCertfile.getPath() == null) {
+			logger.error("------/crt/------找不到支付宝根证书路径");
+			return null;
 		}
-		URL resource4 = this.getClass().getResource("/appCertPublicKey_201910216848175222.crt");
-//		String inputStream2Str = inputStream2Str(inputStream);
-		
-		if(resource4 != null){
-			String path4 = resource4.getPath();
-			logger.info(path4);
-		}
-		logger.info("end----");
-		// certAlipayRequest.setCertPath(AlipayConfig.app_cert_path);
-		// // 设置支付宝公钥证书路径
-		// certAlipayRequest.setAlipayPublicCertPath(AlipayConfig.alipay_cert_path);
-		// // 设置支付宝根证书路径
-		// certAlipayRequest.setRootCertPath(AlipayConfig.alipay_root_cert_path);
+		certAlipayRequest.setRootCertPath(alipayRootCertfile.getPath());
+
 		return certAlipayRequest;
 	}
 
 	/**
-	 * 将inputStream转换为str
-	 * 
-	 * @param is
-	 * @return
-	 * @throws IOException
+	 * 验证订单签名
+	 * @param request
 	 */
-	public static String inputStream2Str(InputStream is) {
-
-		StringBuffer sb = new StringBuffer();
-		;
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new InputStreamReader(is));
-
-			String data;
-			while ((data = br.readLine()) != null) {
-				sb.append(data);
+	public AliAppPayResponseCode verifyOrderInfoSign(HttpServletRequest request) {
+		// 获取支付宝POST过来反馈信息
+		Map<String, String> params = new HashMap<String, String>();
+		Map requestParams = request.getParameterMap();
+		for (Iterator iter = requestParams.keySet().iterator(); iter.hasNext();) {
+			String name = (String) iter.next();
+			String[] values = (String[]) requestParams.get(name);
+			String valueStr = "";
+			for (int i = 0; i < values.length; i++) {
+				valueStr = (i == values.length - 1) ? valueStr + values[i] : valueStr + values[i] + ",";
 			}
-		} catch (Exception e) {
-			// TODO: handle exception
-		} finally {
-			try {
-				br.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			// 乱码解决，这段代码在出现乱码时使用。
+			// valueStr = new String(valueStr.getBytes("ISO-8859-1"), "utf-8");
+			params.put(name, valueStr);
+		}
+		
+		// 设置支付宝公钥证书路径
+		File alipayCertfile = new File(outPath + "alipayCertPublicKey_RSA2.crt");
+		System.out.println(alipayCertfile.getPath());
+		if (alipayCertfile == null || alipayCertfile.getPath() == null) {
+			logger.error("------/crt/------找不到支付宝公钥证书");
+			return AliAppPayResponseCode.CRT_FILE_ERROR;
 		}
 
-		return sb.toString();
-	}
-
-	/**
-	 * 判断对象是否含有空的属性列
-	 * 
-	 * @param obj
-	 * @return
-	 */
-	private boolean checkObjFieldIsNull(Object obj) {
-
-		boolean flag = false;
+		// 切记alipaypublickey是支付宝的公钥，请去open.alipay.com对应应用下查看。
+		// boolean AlipaySignature.rsaCertCheckV1(Map<String, String> params,
+		// String publicKeyCertPath, String charset,String signType)
+		boolean flag;
 		try {
-			for (Field f : obj.getClass().getDeclaredFields()) {
-				f.setAccessible(true);// 类中的成员变量为private,故必须进行此操作
-				logger.debug(f.getName());
-				if (f.get(obj) == null || f.get(obj).equals("")) {
-					flag = true;
-					return flag;
-				}
+			flag = AlipaySignature.rsaCertCheckV1(params, alipayCertfile.getPath(), AlipayConfig.charset,
+					AlipayConfig.sign_type);
+			if(flag){
+				AliAppPayResponseCode response = AliAppPayResponseCode.SUCCESS;
+				response.setAlias(JSONObject.toJSONString(params));
+				return response;
+			}else{
+				return AliAppPayResponseCode.VERIFY_SIGN_ERROR;
 			}
-		} catch (IllegalAccessException e) {
-			logger.error("checkObjFieldIsNull", e);
+		} catch (AlipayApiException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return AliAppPayResponseCode.VERIFY_SIGN_ERROR;
 		}
-		return flag;
+		
 	}
+
 }

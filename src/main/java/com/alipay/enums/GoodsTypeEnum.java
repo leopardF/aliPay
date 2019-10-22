@@ -5,22 +5,22 @@ package com.alipay.enums;
  */
 public enum GoodsTypeEnum {
 
-	VIRTUAL(0,"虚拟类商品"),
-	ENTITY(1,"实物类商品");
+	VIRTUAL("0","虚拟类商品"),
+	ENTITY("1","实物类商品");
 
-	private Integer value;
+	private String value;
 	private String alias;
 
-	private GoodsTypeEnum(Integer value, String alias) {
+	private GoodsTypeEnum(String value, String alias) {
 		this.value = value;
 		this.alias = alias;
 	}
 
-	public Integer value() {
+	public String value() {
 		return value;
 	}
 
-	public void setValue(Integer value) {
+	public void setValue(String value) {
 		this.value = value;
 	}
 

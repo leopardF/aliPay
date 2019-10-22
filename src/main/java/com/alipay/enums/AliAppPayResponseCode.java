@@ -8,7 +8,8 @@ public enum AliAppPayResponseCode {
 	SUCCESS("success","data","将回调参数放入data内"),
 	
 	ERROR("ERROR","请求有误，请重新提交","非业务错误码范围，请查看信息核对"),
-	PARAM_ERROR("PARAM_ERROR","请求参数有误，请重新提交","请求参数有误，请重新提交"),
+	CRT_FILE_ERROR("CRT_FILE_ERROR","证书文件异常，提交失败","请排查路径是否正确，证书是否存在"),
+	VERIFY_SIGN_ERROR("VERIFY_SIGN_ERROR","验证签名失败","请通过日志查看解签参数，及验证参数配置"),
 	
 	SYSTEM_ERROR("ACQ.SYSTEM_ERROR","接口返回错误","请立即调用查询订单API，查询当前订单的状态，并根据订单状态决定下一步的操作"),
 	ACCESS_FORBIDDEN("ACQ.ACCESS_FORBIDDEN","无权限使用接口","联系支付宝小二签约"),

@@ -1,0 +1,7 @@
+com\alipay\AliAppPayRequest.class
+com\alipay\config\AlipayConfig.class
+com\alipay\request\BizContentRequest.class
+com\alipay\enums\AliPayChannelEnum.class
+com\alipay\enums\GoodsTypeEnum.class
+com\alipay\enums\AliPayPublicCode.class
+com\alipay\enums\AliAppPayResponseCode.class
