@@ -64,20 +64,6 @@
 		</dependency>
 	</dependencies>
 
-	<!-- nexus3版本的上传格式 -->
-	<distributionManagement>
-		<repository>
-			<id>nexus</id>
-			<name>Release Repository</name>
-			<url>http://nexus.leopardfeng.com/repository/maven-releases/</url>
-		</repository>
-		<snapshotRepository>
-			<id>nexus</id>
-			<name>Snapshot Repository</name>
-			<url>http://nexus.leopardfeng.com/repository/maven-snapshots/</url>
-		</snapshotRepository>
-	</distributionManagement>
-
 	<build>
 		<plugins>
 			<plugin>
