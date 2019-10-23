@@ -24,15 +24,36 @@ import com.alipay.config.AlipayConfig;
 import com.alipay.enums.AliAppPayResponseCode;
 import com.alipay.enums.GoodsTypeEnum;
 
+/**
+ * app支付请求
+ */
 public class AliAppPayRequest {
 
 	private static final Logger logger = LoggerFactory.getLogger(AliAppPayRequest.class);
 	
 	// Linux文件绝对路径 --- ${jar包所在路径}/crt/
-//	private static final String outPath = System.getProperty("user.dir") + File.separator + "crt" + File.separator;
+	//private static final String outPath = System.getProperty("user.dir") + File.separator + "crt" + File.separator;
 	// window文件相对路径
 	private static final String outPath = AliAppPayRequest.class.getClass().getResource("/").getPath();
 	
+	
+	private volatile static AlipayClient alipayClient = null;
+	
+	public static AlipayClient getInstance(){
+		try {
+			if(alipayClient == null){
+				synchronized (AliAppPayRequest.class) {
+					if(alipayClient == null){
+						alipayClient = new DefaultAlipayClient(getCertAlipayRequest());
+					}
+				}
+			}
+		} catch (AlipayApiException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return alipayClient;
+	}
 
 	/**
 	 * 获取支付订单信息
@@ -56,10 +77,10 @@ public class AliAppPayRequest {
 	public AliAppPayResponseCode appPayRequest(int timeoutExpress, String subject, String body, String totalAmount,
 			String outTradeNo, String passbackParams, String notifyUrl) {
 
-		CertAlipayRequest certAlipayRequest = getCertAlipayRequest();
+		/*CertAlipayRequest certAlipayRequest = getCertAlipayRequest();
 		if (certAlipayRequest == null) {
 			return AliAppPayResponseCode.CRT_FILE_ERROR;
-		}
+		}*/
 
 		// 实例化具体API对应的request类,类名称和接口名称对应,当前调用接口名称：alipay.trade.app.pay
 		AlipayTradeAppPayRequest request = new AlipayTradeAppPayRequest();
@@ -78,10 +99,9 @@ public class AliAppPayRequest {
 		request.setApiVersion("2.0");
 
 		// 构造client
-		AlipayClient alipayClient = null;
 		try {
-			alipayClient = new DefaultAlipayClient(certAlipayRequest);
 			// 这里和普通的接口调用不同，使用的是sdkExecute
+			alipayClient = getInstance();
 			AlipayTradeAppPayResponse response = alipayClient.sdkExecute(request);
 			System.out.println(response.getBody());// 就是orderString
 													// 可以直接给客户端请求，无需再做处理。
@@ -104,7 +124,7 @@ public class AliAppPayRequest {
 	 * 
 	 * @return
 	 */
-	private CertAlipayRequest getCertAlipayRequest() {
+	private static CertAlipayRequest getCertAlipayRequest() {
 		// 构造client
 		CertAlipayRequest certAlipayRequest = new CertAlipayRequest();
 		// 设置网关地址
@@ -171,18 +191,18 @@ public class AliAppPayRequest {
 		
 		// 设置支付宝公钥证书路径
 		File alipayCertfile = new File(outPath + "alipayCertPublicKey_RSA2.crt");
-		System.out.println(alipayCertfile.getPath());
 		if (alipayCertfile == null || alipayCertfile.getPath() == null) {
 			logger.error("------/crt/------找不到支付宝公钥证书");
 			return AliAppPayResponseCode.CRT_FILE_ERROR;
 		}
+		String alipayCertfilePath = alipayCertfile.getPath();
 
 		// 切记alipaypublickey是支付宝的公钥，请去open.alipay.com对应应用下查看。
 		// boolean AlipaySignature.rsaCertCheckV1(Map<String, String> params,
 		// String publicKeyCertPath, String charset,String signType)
 		boolean flag;
 		try {
-			flag = AlipaySignature.rsaCertCheckV1(params, alipayCertfile.getPath(), AlipayConfig.charset,
+			flag = AlipaySignature.rsaCertCheckV1(params, alipayCertfilePath, AlipayConfig.charset,
 					AlipayConfig.sign_type);
 			if(flag){
 				AliAppPayResponseCode response = AliAppPayResponseCode.SUCCESS;
@@ -196,6 +216,40 @@ public class AliAppPayRequest {
 			e.printStackTrace();
 			return AliAppPayResponseCode.VERIFY_SIGN_ERROR;
 		}
+		
+	}
+	
+	/**
+	 * 验证商户操作号合法型
+	 * 
+	 * @param sellerId	操作号
+	 * @return
+	 */
+	public static boolean verifySellerId(String sellerId){
+		
+		String sellerIdStr = AlipayConfig.seller_id;
+		String[] sellerIdSplit = sellerIdStr.split(",");
+		for (String temp : sellerIdSplit) {
+			if(sellerId.equals(temp)){
+				return true;
+			}
+		}
+		return false;
+		
+	}
+
+	/**
+	 * 验证商户操作号合法型
+	 * 
+	 * @param sellerId	操作号
+	 * @return
+	 */
+	public static boolean verifyAppId(String appId){
+		
+		if(AlipayConfig.app_id.equals(appId)){
+			return true;
+		}
+		return false;
 		
 	}
 

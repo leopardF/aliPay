@@ -115,12 +115,9 @@ public class BizContentRequest {
 		this.promo_params = "{\"storeIdType\":\"1\"}";
 		this.passback_params = URLEncoder.encode(passback_params);
 		this.merchant_order_no = merchant_order_no;
-		this.enable_pay_channels = new StringBuffer(AliPayChannelEnum.balance.value()).append(",")
-				.append(AliPayChannelEnum.moneyFund.value()).append(",")
-				.append(AliPayChannelEnum.creditCardExpress.value()).append(",")
-				.append(AliPayChannelEnum.creditCardCartoon.value()).append(",")
-				.append(AliPayChannelEnum.debitCardExpress.value()).append(",")
-				.append(AliPayChannelEnum.bankPay.value()).toString();
+		this.enable_pay_channels = new StringBuffer(AliPayChannelEnum.ALIPAYACCOUNT.value()).append(",")
+				.append(AliPayChannelEnum.FINANCEACCOUNT.value()).append(",")
+				.append(AliPayChannelEnum.PCREDIT.value()).toString();
 	}
 
 	public void setTimeout_express(String timeout_express) {
